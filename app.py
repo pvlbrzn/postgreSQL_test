@@ -1,6 +1,10 @@
-from flask import Flask
+from flask import Flask, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_wtf import FlaskForm
+from wtforms import StringField, TextAreaField, SubmitField
+from wtforms.validators import DataRequired
+import os
 
 # Создание объекта Flask
 app = Flask(__name__)
@@ -8,6 +12,7 @@ app = Flask(__name__)
 # Настройки для подключения к базе данных PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://pavel:pavel@localhost:5432/pavel'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # Отключаем уведомления об изменениях в базе данных
+app.config['SECRET_KEY'] = os.urandom(24)
 
 # Инициализация SQLAlchemy
 db = SQLAlchemy(app)
@@ -16,28 +21,62 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 
-# Пример модели (таблицы) для работы с данными
-class User(db.Model):
+# Модели базы данных
+class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text, nullable=False)
 
 
+# Формы
+class RecipeForm(FlaskForm):
+    title = StringField('Название', validators=[DataRequired()])
+    content = TextAreaField('Содержание', validators=[DataRequired()])
+    submit = SubmitField('Добавить рецепт')
+
+
+# Главная страница
 @app.route('/')
 def index():
-    new_user = User(username="john_doe", email="john@example.com")
-    db.session.add(new_user)
+    recipes = Recipe.query.all()
+    return render_template('index.html', recipes=recipes)
+
+
+# Детали
+@app.route('/recipe/<int:recipe_id>')
+def view_recipe(recipe_id):
+    # Логика для отображения рецепта по ID
+    recipe = Recipe.query.get_or_404(recipe_id)
+    return render_template('view_recipe.html', recipe=recipe)
+
+
+# Форма для добавления рецепта
+@app.route('/add', methods=['GET', 'POST'])
+def add_recipe():
+    form = RecipeForm()
+    if form.validate_on_submit():
+        recipe = Recipe(
+            title=form.title.data,
+            content=form.content.data
+        )
+        db.session.add(recipe)
+        db.session.commit()
+        flash('Рецепт добавлен.')
+        return redirect(url_for('index'))
+    return render_template('add_recipe.html', form=form)
+
+
+# Удаление рецепта
+@app.route('/delete/<int:recipe_id>')
+def delete_recipe(recipe_id):
+    recipe = Recipe.query.get_or_404(recipe_id)
+    db.session.delete(recipe)
     db.session.commit()
-    return (("Пользователь создан"))
+    flash('Рецепт удален.')
+    return redirect(url_for('index'))
 
 
-@app.route('/all')
-def all():
-    users = User.query.all()
-    for user in users:
-        print(user.username, user.email)
-    return ("все пользователи")
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()  # Создание таблиц в PostgreSQL
     app.run(debug=True)

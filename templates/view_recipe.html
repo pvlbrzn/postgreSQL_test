@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mt-4 mb-4">{{ recipe.title }}</h1>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Детали рецепта</h5>
+        <p class="card-text">{{ recipe.content }}</p>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">Вернуться к списку рецептов</a>
+</div>
+{% endblock %}
